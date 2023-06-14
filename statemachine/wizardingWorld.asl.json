@@ -1,0 +1,122 @@
+{
+    "Comment": "A state machine that return all the wizard world information related to Harry Potter Books",
+    "StartAt": "Wait",
+    "States": {
+        "Wait": {
+            "Type": "Wait",
+            "Seconds": 5,
+            "Next": "ParallelState"
+        },
+        "ParallelState": {
+            "Type" : "Parallel",
+            "Branches": 
+                [
+                    { 
+                        "StartAt": "Lista de Personajes",
+                        "States": {
+                            "Lista de Personajes": {
+                                "Type": "Task",
+                                "Resource": "arn:aws:states:::lambda:invoke",
+                                "Parameters": {
+                                  "Payload.$": "$",
+                                  "FunctionName": "${PersonajesFunctionArn}"
+                                },
+                                "Retry": [
+                                    {
+                                        "ErrorEquals": [
+                                            "States.TaskFailed"
+                                        ],
+                                        "IntervalSeconds": 15,
+                                        "MaxAttempts": 5,
+                                        "BackoffRate": 1.5
+                                    }
+                                ],
+                                "End": true,
+                                "ResultSelector": {
+                                    "Personajes.$": "$.Payload.body"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "StartAt": "Lista de Hechizos",
+                        "States": {
+                                "Lista de Hechizos": {
+                                    "Type": "Task",
+                                    "Resource": "arn:aws:states:::lambda:invoke",
+                                    "Parameters": {
+                                      "Payload.$": "$",
+                                      "FunctionName": "${HechizosFunctionArn}"
+                                    },
+                                    "Retry": [
+                                        {
+                                            "ErrorEquals": [
+                                                "States.TaskFailed"
+                                            ],
+                                            "IntervalSeconds": 15,
+                                            "MaxAttempts": 5,
+                                            "BackoffRate": 1.5
+                                        }
+                                    ],
+                                    "End": true,
+                                    "ResultSelector": {
+                                        "Hechizos.$": "$.Payload.body"
+                                      }
+
+                                }
+                            }
+                    },
+                    {
+                        "StartAt": "Lista de Libros",
+                        "States": {
+                            "Lista de Libros": {
+                                "Type": "Task",
+                                "Resource": "arn:aws:states:::lambda:invoke",
+                                "Parameters": {
+                                  "Payload.$": "$",
+                                  "FunctionName": "${LibrosFunctionArn}"
+                                },
+                                "Retry": [
+                                    {
+                                        "ErrorEquals": [
+                                            "States.TaskFailed"
+                                        ],
+                                        "IntervalSeconds": 15,
+                                        "MaxAttempts": 5,
+                                        "BackoffRate": 1.5
+                                    }
+                                ],
+                                "End": true,
+                                "ResultSelector": {
+                                    "libros.$": "$.Payload.body"
+                                  }
+                            }
+                        }
+                    }
+                ],
+                "Next": "Info"
+        },
+        "Info": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                    "Payload.$": "$",
+                    "FunctionName": "${InfoFunctionArn}"
+                },
+            "Retry": [
+                {
+                "ErrorEquals": [
+                    "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 15,
+                    "MaxAttempts": 5,
+                    "BackoffRate": 1.5
+                }
+            ],
+            "End": true,
+            "ResultSelector": {
+                "WizaringData.$": "$.Payload.data"
+              }
+        }
+    }
+}

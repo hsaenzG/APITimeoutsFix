@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  APITimeoutsFix
+
+  Sample SAM Template for APITimeoutsFix
+
+Resources:
+  LambdaIntegrationFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ./functions/LambdaIntegration
+      Handler: app.lambdaHandler
+      Runtime: nodejs18.x
+      Policies:
+        - AWSStepFunctionsFullAccess
+      Architectures:
+      - x86_64
+      Events:
+        MyApiMethod:
+          Type: Api
+          Properties:
+            Path: /LambdaIntegration
+            Method: POST
+  
+  StepFunctionsIntegrationFunctionPersonajes:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ./functions/StepFunctionIntegration
+      Handler: personajes.lambdaHandlerPersonajes
+      Runtime: nodejs18.x
+      Architectures:
+      - x86_64
+
+  StepFunctionsIntegrationFunctionInfo:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ./functions/StepFunctionIntegration
+      Handler: info.lambdaHandlerInfo
+      Runtime: nodejs18.x
+      Architectures:
+      - x86_64
+
+  StepFunctionsIntegrationFunctionHechizos:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ./functions/StepFunctionIntegration
+      Handler: hechizos.lambdaHandlerHechizos
+      Runtime: nodejs18.x
+      Architectures:
+      - x86_64
+
+  StepFunctionsIntegrationFunctionLibros:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ./functions/StepFunctionIntegration
+      Handler: libros.lambdaHandlerLibros
+      Runtime: nodejs18.x
+      Architectures:
+      - x86_64
+
+  WizaringStateMachine:
+    Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
+    Properties:
+      DefinitionUri: statemachine/wizardingWorld.asl.json
+      Type: EXPRESS
+      DefinitionSubstitutions:
+        PersonajesFunctionArn: !GetAtt StepFunctionsIntegrationFunctionPersonajes.Arn
+        LibrosFunctionArn: !GetAtt StepFunctionsIntegrationFunctionLibros.Arn
+        HechizosFunctionArn: !GetAtt StepFunctionsIntegrationFunctionHechizos.Arn
+        InfoFunctionArn: !GetAtt StepFunctionsIntegrationFunctionInfo.Arn
+      Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+      - LambdaInvokePolicy:
+          FunctionName: !Ref StepFunctionsIntegrationFunctionPersonajes
+      - LambdaInvokePolicy:
+          FunctionName: !Ref StepFunctionsIntegrationFunctionLibros
+      - LambdaInvokePolicy:
+          FunctionName: !Ref StepFunctionsIntegrationFunctionInfo
+      - LambdaInvokePolicy:
+          FunctionName: !Ref StepFunctionsIntegrationFunctionHechizos
+      Events:
+        MyApiMethod:
+          Type: Api
+          Properties:
+            RestApiId: 
+              Ref: WizaringApi
+            Path: /Wizarding
+            Method: POST
+
+  WizaringApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v2
+      TracingEnabled: true
+      DefinitionBody:
+        swagger: "2.0"
+        info:
+          version: "1.1"
+          title: "WizaringStepFunctionsApi"
+        basePath: "/v2"
+        schemes:
+          - "https"
+        paths:
+          /WizaringWorldParalell:
+            post:
+              consumes:
+                - "application/json"
+              produces:
+                - "application/json"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                credentials: !GetAtt ApiGatewayStepFunctionsRole.Arn
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:states:action/StartSyncExecution"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: !Sub |
+                    {
+                    "input": "$util.escapeJavaScript($input.json('$'))",
+                    "name": "$context.requestId",
+                    "stateMachineArn": "${WizaringStateMachine}"
+                    }
+                passthroughBehavior: "when_no_templates"
+                httpMethod: "POST"
+                type: "aws"
+            options:
+              consumes:
+                - "application/json"
+              produces:
+                - "application/json"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    Access-Control-Allow-Methods:
+                      type: "string"
+                    Access-Control-Allow-Headers:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"
+        definitions:
+          Empty:
+            type: "object"
+            title: "Empty Schema"
+
+  #API Gateway Role Step Functions 
+  ApiGatewayStepFunctionsRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: !Join ["", ["/", !Ref "AWS::StackName", "/"]]
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Sid: "AllowApiGatewayServiceToAssumeRole"
+            Effect: "Allow"
+            Action:
+              - "sts:AssumeRole"
+            Principal:
+              Service:
+                - "apigateway.amazonaws.com"
+      Policies:
+        -   PolicyName: "CallStepFunctions"
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                -
+                  Effect: "Allow"
+                  Action:
+                    - "states:StartSyncExecution"
+                  Resource:
+                    - !Ref WizaringStateMachine
+
+Outputs:
+  WizaringApiUrl:
+    Description: API URL
+    Value: !Sub "https://${WizaringApi}.execute-api.${AWS::Region}.amazonaws.com/v2"
+
+  StepFunctionsStateMachine:
+    Description: Step Functions State Machine ARN
+    Value: !Ref WizaringStateMachine
