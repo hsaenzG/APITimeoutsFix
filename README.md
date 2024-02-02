@@ -7,7 +7,8 @@ This project contains source code and supporting files for a serverless applicat
 - template.yaml - A template that defines the application's AWS resources.
 
 
-Follow the step by step guide in here: 
-English: https://community.aws/posts/How-to-tackle-time-out-on-api-gateway-using-step-functions-and-SAM
-spanish: https://dev.to/aws-builders/como-evitar-timeouts-de-api-gateway-usando-aplicaciones-serverless-y-en-menos-de-10-minutos-2j2g
+Follow the step by step guide in here:
+
+- English: https://community.aws/posts/How-to-tackle-time-out-on-api-gateway-using-step-functions-and-SAM
+- spanish: https://dev.to/aws-builders/como-evitar-timeouts-de-api-gateway-usando-aplicaciones-serverless-y-en-menos-de-10-minutos-2j2g
 
